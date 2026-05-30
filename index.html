@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SecureAuth — Secure Login System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0a0a0f; --panel: #11111a; --border: rgba(255,255,255,0.07); --accent: #6c63ff; --accent2: #a78bfa; --text: #f0eeff; --muted: #8880aa; --success: #34d399; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; text-align: center; padding: 24px; }
+  .bg-blob { position: fixed; border-radius: 50%; filter: blur(100px); opacity: 0.12; pointer-events: none; animation: float 10s ease-in-out infinite; }
+  .bg-blob.b1 { width: 600px; height: 600px; background: #6c63ff; top: -200px; left: -150px; }
+  .bg-blob.b2 { width: 500px; height: 500px; background: #34d399; bottom: -150px; right: -150px; animation-delay: -4s; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-25px)} }
+  .grid-overlay { position: fixed; inset: 0; background-image: linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px); background-size: 50px 50px; pointer-events: none; }
+  .hero { position: relative; max-width: 640px; animation: fadeUp 0.8s cubic-bezier(0.16,1,0.3,1) forwards; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.2); color: var(--success); font-size: 12px; padding: 6px 16px; border-radius: 20px; margin-bottom: 32px; }
+  .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: pulse 2s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  h1 { font-family: 'Syne', sans-serif; font-size: clamp(36px, 6vw, 56px); font-weight: 800; line-height: 1.1; margin-bottom: 20px; letter-spacing: -1px; }
+  h1 .grad { background: linear-gradient(135deg, var(--accent2), var(--success)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  p.lead { font-size: 17px; color: var(--muted); line-height: 1.7; margin-bottom: 44px; max-width: 500px; margin-left: auto; margin-right: auto; }
+  .btn-group { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-bottom: 60px; }
+  .btn-main { padding: 14px 32px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 600; color: #fff; cursor: pointer; text-decoration: none; transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s; box-shadow: 0 4px 24px rgba(108,99,255,0.35); display: inline-block; }
+  .btn-main:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 8px 32px rgba(108,99,255,0.45); }
+  .btn-outline { padding: 14px 32px; background: none; border: 1px solid var(--border); border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 600; color: var(--text); text-decoration: none; transition: border-color 0.2s, background 0.2s, transform 0.15s; display: inline-block; }
+  .btn-outline:hover { border-color: rgba(167,139,250,0.4); background: rgba(167,139,250,0.05); transform: translateY(-2px); }
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; max-width: 640px; }
+  .feature { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 20px; text-align: left; transition: border-color 0.2s, transform 0.2s; }
+  .feature:hover { border-color: rgba(108,99,255,0.3); transform: translateY(-2px); }
+  .feature-icon { font-size: 22px; margin-bottom: 10px; }
+  .feature-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+  .feature-desc { font-size: 11px; color: var(--muted); line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="bg-blob b1"></div>
+<div class="bg-blob b2"></div>
+<div class="grid-overlay"></div>
+
+<div class="hero">
+  <div class="badge">Live · Spring Boot Running</div>
+  <h1>The <span class="grad">Secure Login</span> System You Deserve</h1>
+  <p class="lead">Full-stack authentication with JWT, BCrypt password hashing, SQL injection prevention, XSS protection, and stateless session management.</p>
+
+  <div class="btn-group">
+    <a href="register.html" class="btn-main">🚀 Create Account</a>
+    <a href="login.html" class="btn-outline">🔑 Sign In</a>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="feature-icon">🔐</div>
+      <div class="feature-name">BCrypt Hashing</div>
+      <div class="feature-desc">Passwords never stored in plain text. Strength 12.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🎫</div>
+      <div class="feature-name">JWT Auth</div>
+      <div class="feature-desc">Stateless tokens signed with HS256. 24h expiry.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🛡️</div>
+      <div class="feature-name">XSS Protection</div>
+      <div class="feature-desc">Content-Security-Policy headers on all responses.</div>
+    </div>
+    <div class="feature">
+      <div class="feature-icon">🗄️</div>
+      <div class="feature-name">SQL Injection Safe</div>
+      <div class="feature-desc">Spring JPA uses parameterized queries always.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
