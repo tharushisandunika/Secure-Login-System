@@ -344,6 +344,14 @@
     </div>
   </div>
 
+  <div class="field" id="mfaField" style="display: none;">
+    <label>Authenticator OTP Code</label>
+    <div class="input-wrap">
+      <span class="input-icon">🛡️</span>
+      <input type="text" id="totpCode" placeholder="Enter 6-digit code" maxlength="6" autocomplete="one-time-code"/>
+    </div>
+  </div>
+
   <div class="remember-row">
     <label>
       <input type="checkbox" id="remember"/> Remember me
@@ -364,6 +372,8 @@
 </div>
 
 <script>
+  let mfaRequired = false;
+
   function togglePass() {
     const p = document.getElementById('password');
     const btn = document.getElementById('passToggle');
@@ -371,12 +381,22 @@
     else { p.type = 'password'; btn.textContent = '👁️'; }
   }
 
-  function showError(msg) {
+  function showError(msg, isInfo = false) {
     const el = document.getElementById('errorAlert');
     document.getElementById('errorMsg').textContent = msg;
     el.classList.add('show');
-    el.classList.remove('error');
-    el.classList.add('error');
+    
+    if (isInfo) {
+      el.classList.remove('error');
+      el.style.background = 'rgba(108,99,255,0.1)';
+      el.style.borderColor = 'rgba(108,99,255,0.2)';
+      el.style.color = 'var(--accent2)';
+    } else {
+      el.style.background = '';
+      el.style.borderColor = '';
+      el.style.color = '';
+      el.classList.add('error');
+    }
   }
 
   function setLoading(on) {
@@ -388,23 +408,36 @@
   async function login() {
     const username = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
+    const totpCode = document.getElementById('totpCode').value.trim();
     document.getElementById('errorAlert').classList.remove('show');
 
     if (!username || !password) { showError('Please fill in all fields.'); return; }
+    if (mfaRequired && !totpCode) { showError('Please enter your MFA Authenticator code.'); return; }
 
     setLoading(true);
     try {
+      const payload = { username, password };
+      if (mfaRequired) {
+        payload.totpCode = totpCode;
+      }
+
       const res = await fetch('http://localhost:8080/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
 
-      if (data.success) {
+      if (res.ok && data.success) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('username', data.username);
         window.location.href = 'dashboard.html';
+      } else if (data.mfaRequired) {
+        mfaRequired = true;
+        document.getElementById('mfaField').style.display = 'block';
+        document.getElementById('totpCode').focus();
+        document.getElementById('btnText').textContent = 'Verify & Sign In';
+        showError('Multi-Factor Authentication required. Enter the 6-digit code from Google Authenticator.', true);
       } else {
         showError(data.message || 'Login failed. Please try again.');
       }

@@ -1,9 +1,14 @@
-// LoginRequest.java
 package com.example.securelogin.dto;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
-@Data  // Lombok: auto-creates getters and setters
+@Data
 public class LoginRequest {
+    @NotBlank(message = "Username is required")
     private String username;
+
+    @NotBlank(message = "Password is required")
     private String password;
+
+    private String totpCode;
 }

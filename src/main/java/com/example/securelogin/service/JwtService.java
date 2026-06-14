@@ -17,7 +17,17 @@ public class JwtService {
     private long expiration;
 
     private Key getKey() {
-        return Keys.hmacShaKeyFor(secret.getBytes());
+        byte[] keyBytes = secret.getBytes();
+        if (keyBytes.length < 32) {
+            try {
+                java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
+                keyBytes = digest.digest(keyBytes);
+            } catch (java.security.NoSuchAlgorithmException e) {
+                // Fallback to auto-generated key if SHA-256 is unavailable
+                return Keys.secretKeyFor(SignatureAlgorithm.HS256);
+            }
+        }
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
     public String generateToken(String username) {
