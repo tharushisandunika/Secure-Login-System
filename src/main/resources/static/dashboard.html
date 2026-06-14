@@ -242,6 +242,63 @@
     </div>
   </div>
 
+  <div class="two-col" id="extraPanels" style="margin-top: 20px;">
+    <!-- MFA Panel -->
+    <div class="panel" id="mfaPanel">
+      <div class="panel-title"><div class="dot purple"></div> Multi-Factor Authentication (MFA)</div>
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 15px;">Secure your account by requiring a 6-digit verification code from your Google Authenticator app during login.</p>
+      
+      <div id="mfaStatusContainer" style="margin-bottom: 15px;">
+        <span id="mfaStatusBadge" class="activity-status ok" style="padding: 6px 12px; font-weight: bold; font-size: 13px;">Checking status...</span>
+      </div>
+
+      <!-- MFA Setup Flow -->
+      <div id="mfaSetupArea" style="display: none; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 15px;">
+        <p style="font-size: 13px; margin-bottom: 10px;">1. Scan this QR code in your Authenticator app:</p>
+        <div style="text-align: center; margin-bottom: 12px; background: #fff; padding: 10px; display: inline-block; border-radius: 8px;">
+          <img id="mfaQrCode" src="" alt="MFA QR Code" style="width: 150px; height: 150px; display: block;"/>
+        </div>
+        <p style="font-size: 12px; color: var(--muted); margin-bottom: 10px; word-break: break-all;">Or enter secret key manually: <strong id="mfaSecretKey" style="color: var(--accent2);"></strong></p>
+        <p style="font-size: 13px; margin-bottom: 8px;">2. Enter the 6-digit code to verify:</p>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <input type="text" id="mfaVerifyCode" placeholder="000000" maxlength="6" style="width: 120px; padding: 8px 12px; font-size: 14px; text-align: center; font-family: monospace; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); outline: none;"/>
+          <button class="btn-copy" id="btnConfirmMfa" onclick="confirmMfaSetup()" style="margin: 0; padding: 8px 16px; border-radius: 8px;">Verify & Enable</button>
+        </div>
+        <div id="mfaSetupError" style="color: var(--error); font-size: 12px; display: none;"></div>
+      </div>
+
+      <!-- MFA Disable Flow -->
+      <div id="mfaDisableArea" style="display: none; background: rgba(248,113,113,0.05); border: 1px solid rgba(248,113,113,0.1); border-radius: 12px; padding: 16px; margin-bottom: 15px;">
+        <p style="font-size: 13px; margin-bottom: 8px; color: var(--muted);">Enter Authenticator code to disable MFA:</p>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <input type="text" id="mfaDisableCode" placeholder="000000" maxlength="6" style="width: 120px; padding: 8px 12px; font-size: 14px; text-align: center; font-family: monospace; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); outline: none;"/>
+          <button class="btn-logout" id="btnDisableMfa" onclick="disableMfa()" style="padding: 8px 16px; border-radius: 8px; border-color: var(--error); color: var(--error);">Disable MFA</button>
+        </div>
+        <div id="mfaDisableError" style="color: var(--error); font-size: 12px; display: none;"></div>
+      </div>
+
+      <button class="btn-copy" id="btnMfaAction" onclick="toggleMfaSetupFlow()" style="margin: 0; padding: 10px 20px;">Enable MFA</button>
+    </div>
+
+    <!-- Admin Panel -->
+    <div class="panel" id="adminPanel" style="display: none;">
+      <div class="panel-title"><div class="dot purple"></div> Administrative Metrics</div>
+      <p style="font-size: 13px; color: var(--muted); margin-bottom: 15px;">Restricted statistics fetched from the secure `/api/admin/stats` API endpoint, validating backend RBAC security.</p>
+      <div class="activity-item">
+        <div class="activity-icon">⏱️</div>
+        <div class="activity-info"><div class="title">Server Uptime</div><div class="time" id="adminUptime">Loading...</div></div>
+      </div>
+      <div class="activity-item">
+        <div class="activity-icon">🔗</div>
+        <div class="activity-info"><div class="title">Active Database Connections</div><div class="time" id="adminConnections">Loading...</div></div>
+      </div>
+      <div class="activity-item">
+        <div class="activity-icon">🗄️</div>
+        <div class="activity-info"><div class="title">Database Health</div><div class="time" id="adminDbStatus">Loading...</div></div>
+      </div>
+    </div>
+  </div>
+
   <div class="token-box">
     <div class="panel-title" style="margin-bottom:4px">🎫 Your Active JWT Token</div>
     <p style="font-size:13px; color: var(--muted); margin-bottom: 0;">This token authenticates all your API requests. Keep it secret!</p>
@@ -251,6 +308,49 @@
 </main>
 
 <script>
+  let mfaEnabled = false;
+
+  function parseJwt(token) {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Token timer countdown
+  function startTokenExpiryTimer(exp) {
+    const timerEl = document.getElementById('tokenTimer');
+    function updateTimer() {
+      const secLeft = Math.floor((exp * 1000 - Date.now()) / 1000);
+      if (secLeft <= 0) {
+        logout();
+        return;
+      }
+      const hrs = Math.floor(secLeft / 3600);
+      const mins = Math.floor((secLeft % 3600) / 60);
+      const secs = secLeft % 60;
+      timerEl.textContent = `${hrs}h ${mins}m ${secs}s`;
+    }
+    updateTimer();
+    setInterval(updateTimer, 1000);
+  }
+
+  // Inactivity auto logout (10 minutes)
+  let inactivityTimeout;
+  function resetInactivityTimer() {
+    clearTimeout(inactivityTimeout);
+    inactivityTimeout = setTimeout(() => {
+      alert('You have been logged out due to 10 minutes of inactivity.');
+      logout();
+    }, 600000); // 10 minutes
+  }
+
   // Check authentication on page load
   window.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('token');
@@ -261,6 +361,23 @@
       return;
     }
 
+    // Decode and verify JWT expiration
+    const payload = parseJwt(token);
+    if (payload && payload.exp) {
+      if (payload.exp * 1000 < Date.now()) {
+        localStorage.clear();
+        window.location.href = 'login.html';
+        return;
+      }
+      startTokenExpiryTimer(payload.exp);
+    }
+
+    // Setup inactivity listeners
+    ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+      document.addEventListener(evt, resetInactivityTimer, true);
+    });
+    resetInactivityTimer();
+
     // Display username
     document.getElementById('displayName').textContent = username || 'User';
     document.getElementById('navUsername').textContent = username || 'User';
@@ -270,7 +387,7 @@
     // Show token
     document.getElementById('tokenDisplay').textContent = token;
 
-    // Validate token with backend
+    // Validate token with backend and get user status
     try {
       const res = await fetch('http://localhost:8080/api/auth/validate', {
         headers: { 'Authorization': 'Bearer ' + token }
@@ -278,12 +395,180 @@
       if (!res.ok) {
         localStorage.clear();
         window.location.href = 'login.html';
+        return;
+      }
+      const data = await res.json();
+      mfaEnabled = data.mfaEnabled;
+      updateMfaStatusUI();
+      
+      // Update UI with role
+      const roleStr = data.role === 'ROLE_ADMIN' ? 'Admin' : 'User';
+      document.getElementById('displayName').textContent = `${username} (${roleStr})`;
+      document.getElementById('navUsername').textContent = `${username} (${roleStr})`;
+
+      // Fetch admin stats if user is Admin
+      if (data.role === 'ROLE_ADMIN') {
+        fetchAdminStats(token);
       }
     } catch (e) {
-      // Backend might be down, but we still show the UI if token exists
       console.log('Could not reach backend for validation.');
     }
   });
+
+  async function fetchAdminStats(token) {
+    try {
+      const res = await fetch('http://localhost:8080/api/admin/stats', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const stats = await res.json();
+        document.getElementById('adminPanel').style.display = 'block';
+        document.getElementById('adminUptime').textContent = stats.serverUptime;
+        document.getElementById('adminConnections').textContent = stats.activeConnections;
+        document.getElementById('adminDbStatus').textContent = stats.databaseStatus;
+      }
+    } catch (e) {
+      console.error('Failed to fetch admin statistics', e);
+    }
+  }
+
+  function updateMfaStatusUI() {
+    const badge = document.getElementById('mfaStatusBadge');
+    const actionBtn = document.getElementById('btnMfaAction');
+    const setupArea = document.getElementById('mfaSetupArea');
+    const disableArea = document.getElementById('mfaDisableArea');
+
+    setupArea.style.display = 'none';
+    disableArea.style.display = 'none';
+
+    if (mfaEnabled) {
+      badge.textContent = 'MFA ACTIVE (TOTP Enabled)';
+      badge.style.background = 'rgba(52,211,153,0.1)';
+      badge.style.borderColor = 'rgba(52,211,153,0.2)';
+      badge.style.color = 'var(--success)';
+      actionBtn.textContent = 'Disable MFA';
+      actionBtn.style.background = 'none';
+      actionBtn.style.borderColor = 'rgba(248,113,113,0.3)';
+      actionBtn.style.color = 'var(--error)';
+    } else {
+      badge.textContent = 'MFA INACTIVE (Unprotected)';
+      badge.style.background = 'rgba(248,113,113,0.1)';
+      badge.style.borderColor = 'rgba(248,113,113,0.2)';
+      badge.style.color = 'var(--error)';
+      actionBtn.textContent = 'Setup MFA';
+      actionBtn.style.background = '';
+      actionBtn.style.borderColor = '';
+      actionBtn.style.color = '';
+    }
+  }
+
+  async function toggleMfaSetupFlow() {
+    const setupArea = document.getElementById('mfaSetupArea');
+    const disableArea = document.getElementById('mfaDisableArea');
+    const token = localStorage.getItem('token');
+
+    if (mfaEnabled) {
+      if (disableArea.style.display === 'none') {
+        disableArea.style.display = 'block';
+        document.getElementById('mfaDisableCode').focus();
+      } else {
+        disableArea.style.display = 'none';
+      }
+    } else {
+      if (setupArea.style.display === 'none') {
+        try {
+          const res = await fetch('http://localhost:8080/api/auth/mfa/setup', {
+            headers: { 'Authorization': 'Bearer ' + token }
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            document.getElementById('mfaSecretKey').textContent = data.secret;
+            document.getElementById('mfaQrCode').src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(data.qrCodeUrl)}`;
+            setupArea.style.display = 'block';
+            document.getElementById('mfaVerifyCode').focus();
+          } else {
+            alert(data.message || 'MFA setup initiation failed.');
+          }
+        } catch (e) {
+          alert('Error communicating with authentication server.');
+        }
+      } else {
+        setupArea.style.display = 'none';
+      }
+    }
+  }
+
+  async function confirmMfaSetup() {
+    const code = document.getElementById('mfaVerifyCode').value.trim();
+    const errorEl = document.getElementById('mfaSetupError');
+    const token = localStorage.getItem('token');
+
+    if (!code) {
+      errorEl.textContent = 'Please enter verification code.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    errorEl.style.display = 'none';
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/mfa/verify', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        mfaEnabled = true;
+        updateMfaStatusUI();
+        alert('MFA setup complete! Multi-factor authentication is now enabled.');
+      } else {
+        errorEl.textContent = data.message || 'Invalid code. Please try again.';
+        errorEl.style.display = 'block';
+      }
+    } catch (e) {
+      errorEl.textContent = 'Error connecting to authentication server.';
+      errorEl.style.display = 'block';
+    }
+  }
+
+  async function disableMfa() {
+    const code = document.getElementById('mfaDisableCode').value.trim();
+    const errorEl = document.getElementById('mfaDisableError');
+    const token = localStorage.getItem('token');
+
+    if (!code) {
+      errorEl.textContent = 'Please enter code to confirm.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    errorEl.style.display = 'none';
+    try {
+      const res = await fetch('http://localhost:8080/api/auth/mfa/disable', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        mfaEnabled = false;
+        updateMfaStatusUI();
+        alert('MFA has been disabled.');
+      } else {
+        errorEl.textContent = data.message || 'Verification failed. Try again.';
+        errorEl.style.display = 'block';
+      }
+    } catch (e) {
+      errorEl.textContent = 'Error connecting to authentication server.';
+      errorEl.style.display = 'block';
+    }
+  }
 
   function copyToken() {
     const token = localStorage.getItem('token');
@@ -296,7 +581,11 @@
 
   async function logout() {
     try {
-      await fetch('http://localhost:8080/api/auth/logout', { method: 'POST' });
+      const token = localStorage.getItem('token');
+      await fetch('http://localhost:8080/api/auth/logout', { 
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
     } catch (e) {}
     localStorage.clear();
     window.location.href = 'login.html';

@@ -25,4 +25,17 @@ public class User {
     private String email;
 
     private String role;
+
+    @Builder.Default
+    private boolean accountNonLocked = true;
+
+    @Builder.Default
+    private int failedAttempts = 0;
+
+    private java.time.LocalDateTime lockTime;
+
+    @Builder.Default
+    private boolean mfaEnabled = false;
+
+    private String mfaSecret;
 }
